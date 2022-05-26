@@ -20,16 +20,27 @@ class Task(BaseModel):
     class Meta:
         order_by = ('-due_date',)
 
-    def get(task_id):
-        row = Task.select().where(Task.id == task_id)
-        return row[0] if row.count() > 0 else None
+    def exists(title):
+        return Task.select().where(Task.title == title).count() > 0 
 
+    def get(id):
+        row = Task.select().where(Task.id == id)
+        return row[0] if row.count() > 0 else None
 
     def expire_in_days(delta):
         return (Task
                 .select()
                 .where(Task.due_date <= (datetime.now() + timedelta(days=delta)))
                 )
+
+    @property
+    def serialize(self):
+	    return {
+	        'id': self.id,
+            'title': self.title,
+            'due_date': self.due_date.strftime("%d/%m/%y %H:%M:%I"),
+        }
+
 
 with database:
     database.create_tables([Task], safe=True)

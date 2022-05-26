@@ -1,7 +1,7 @@
 import datetime
 
 from flask import Flask
-from flask_restful import reqparse, abort, Api, Resource
+from flask_restful import reqparse, abort, Api, Resource, fields, marshal_with
 
 app = Flask(__name__)
 api = Api(app)
@@ -18,43 +18,60 @@ def abort_if_task_doesnt_exist(task_id):
     if Task.select().where(Task.id == task_id).count() is 0:
         abort(404, message="task {} doesn't exist".format(task_id))
 
-parser = reqparse.RequestParser()
-parser.add_argument('task')
-
+res_fields = {
+    'id': fields.Integer,
+    'title': fields.String,
+    'due_date': fields.String
+}
 
 # task
 # shows a single task item and lets you delete a task item
-class task(Resource):
-    def get(self, task_id):
-        item = Task.get(task_id)
-        if item is None:
-            abort(404, message="task {} doesn't exist".format(task_id))
-        return item
+class TaskAPI(Resource):
 
-    def delete(self, task_id):
-        abort_if_task_doesnt_exist(task_id)
-        del tasks[task_id]
+    def __init__(self):
+        self.reqparse = reqparse.RequestParser()
+        self.reqparse.add_argument('id', type=int, location='json')
+        self.reqparse.add_argument('title', type=str, location='json')
+        self.reqparse.add_argument('due_date', type=str, location='json')
+        super(TaskAPI, self).__init__()
+
+    def get(self, id):
+        item = Task.get(id)
+        if item is None:
+            abort(404, message="task {} doesn't exist".format(id))
+        return item.serialize
+
+    def delete(self, id):
+        abort_if_task_doesnt_exist(id)
+        del tasks[id]
         return '', 204
 
-    def put(self, task_id):
-        args = parser.parse_args()
+    def put(self, id):
+#        args = parser.parse_args()
         task = {'task': args['task']}
-        tasks[task_id] = task
+        tasks[id] = task
         return task, 201
 
     def post(self):
-        args = parser.parse_args()
-        return [args.title, args.due_date], 201
+        args = self.reqparse.parse_args()
+        if Task.exists(args.title):
+            abort(400, message="Task {} already exists".format(args.title))
+
+        cnt = Task.insert(title=args.title, due_date=args.due_date).execute()
+        return cnt, 201
 
 # taskList
 # shows a list of all tasks, and lets you POST to add new tasks
-class taskList(Resource):
+class TaskListAPI(Resource):
     def get(self):
         return tasks
 
 
-api.add_resource(taskList, '/tasks')
-api.add_resource(task, '/task')
+api.add_resource(TaskListAPI, '/tasks')
+api.add_resource(TaskAPI, 
+    '/task',
+    '/task/<int:id>'
+)
 
 if __name__ == '__main__':
     app.run(debug=True)
