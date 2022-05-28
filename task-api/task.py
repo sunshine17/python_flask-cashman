@@ -157,15 +157,25 @@ class TaskAPI(Resource):
         return task_schema.dump(task), 201
 
 class TaskListAPI(Resource):
-    def get(self):
+    def get(self, exp_days=None):
+        if exp_days:
+            return self._get_in_exp_days(exp_days)
+
         tasks = Task.select().order_by(Task.due_date.asc())
         return tasks_schema.dump(list(tasks))
 
+    def _get_in_exp_days(self, exp_days):
+        tasks = Task.select().where(Task.due_date <= (dt.datetime.now() + dt.timedelta(days=exp_days)))
+        return tasks_schema.dump(list(tasks))
 
-api.add_resource(TaskListAPI, '/tasks')
+api.add_resource(TaskListAPI, 
+    '/tasks', 
+    '/tasks/<int:exp_days>'
+)
+
 api.add_resource(TaskAPI, 
     '/task',
-    '/task/<int:id>'
+    '/task/<int:id>',
 )
 
 if __name__ == "__main__":
