@@ -13,6 +13,8 @@ class BaseModel(Model):
         database = database
 
 
+due_date_fmt = "%d/%m/%Y"
+
 class Task(BaseModel):
     title = CharField(unique=True)
     due_date = DateTimeField(index=True)
@@ -33,12 +35,13 @@ class Task(BaseModel):
                 .where(Task.due_date <= (datetime.now() + timedelta(days=delta)))
                 )
 
+    # date format: 21/08/2019
     @property
     def serialize(self):
 	    return {
 	        'id': self.id,
             'title': self.title,
-            'due_date': self.due_date.strftime("%d/%m/%y %H:%M:%I"),
+            'due_date': self.due_date.strftime(due_date_fmt),
         }
 
 

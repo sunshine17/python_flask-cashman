@@ -24,6 +24,11 @@ res_fields = {
     'due_date': fields.String
 }
 
+def abort_if_task_doesnt_exist(id):
+    item = Task.get(id)
+    if item is None:
+        abort(404, message="task {} doesn't exist".format(id))
+
 # task
 # shows a single task item and lets you delete a task item
 class TaskAPI(Resource):
@@ -47,10 +52,14 @@ class TaskAPI(Resource):
         return '', 204
 
     def put(self, id):
-#        args = parser.parse_args()
-        task = {'task': args['task']}
-        tasks[id] = task
-        return task, 201
+        args = self.reqparse.parse_args()
+        try:
+            due_date = datetime.datetime.strptime(args.due_date, due_date_fmt)
+        except ValueError:
+            abort(400, message="due_date format error: {}".format(args.due_date))
+
+        abort_if_task_doesnt_exist(args.id)
+        Task.update(args.id, args.title, due_date)
 
     def post(self):
         args = self.reqparse.parse_args()
@@ -59,6 +68,10 @@ class TaskAPI(Resource):
 
         cnt = Task.insert(title=args.title, due_date=args.due_date).execute()
         return cnt, 201
+
+#def parse_task(args):
+
+
 
 # taskList
 # shows a list of all tasks, and lets you POST to add new tasks

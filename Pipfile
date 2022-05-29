@@ -8,6 +8,9 @@ flask = "*"
 marshmallow = "*"
 flask-restful = "*"
 peewee = "*"
+flash = "*"
+requests = "*"
+pytest = "*"
 
 [dev-packages]
 

@@ -7,10 +7,7 @@ import peewee as pw
 from marshmallow import (
     Schema,
     fields,
-    validate,
     validates,
-    pre_load,
-    post_load,
     ValidationError,
 )
 
@@ -23,16 +20,12 @@ logging.basicConfig(filename="log.log",
 	level=logging.DEBUG
 )
  
-# Creating an object
 logger = logging.getLogger('__main__')
- 
-# Setting the threshold of logger to DEBUG
 logger.setLevel(logging.DEBUG)
 
 app = Flask(__name__)
 api = Api(app)
 db = pw.SqliteDatabase("/tmp/task.db")
-
 
 ###### MODELS #####
 
@@ -52,7 +45,8 @@ class Task(BaseModel):
 
 
 def create_tables():
-    db.connect()
+    if db.is_closed:
+        db.connect()
     Task.create_table(True)
 
 
@@ -65,13 +59,14 @@ DUE_DATE_FMT = "%d/%m/%Y"
 class TaskSchema(Schema):
     id = fields.Int(dump_only=True)
     title = fields.Str(required=True)
-    due_date = fields.Str(required=True)
+    due_date = fields.DateTime(required=True)
 
     @validates("due_date")
     def validate_date(self, val):
         if type(val) is dt.datetime:
             return True
         try:
+#            dt.datetime.strptime(val, DUE_DATE_FMT)
             dt.datetime.strptime(val, DUE_DATE_FMT)
             return True
         except ValueError:
@@ -91,13 +86,13 @@ task_schema = TaskSchema()
 tasks_schema = TaskSchema(many=True)
 
 # Ensure a separate connection for each thread
-@app.before_request
+#@app.before_request
 def before_request():
     g.db = db
     g.db.connect()
 
 
-@app.after_request
+#@app.after_request
 def after_request(response):
     g.db.close()
     return response
@@ -129,7 +124,7 @@ class TaskAPI(Resource):
 
         json_input = request.get_json()
         try:
-            input_dic = task_schema.load(json_input)
+            input_dic = task_schema.load(json_input, partial=("title","due_date",))
 
             if 'title' not in input_dic and 'due_date' not in input_dic:
                 abort(400, message="nothing to update")
@@ -138,13 +133,12 @@ class TaskAPI(Resource):
                 task.title = input_dic['title']
             if 'due_date' in input_dic:
                 task.due_date = dt.datetime.strptime(input_dic['due_date'], DUE_DATE_FMT)
-
         except ValidationError as err:
             abort(400, message="input error")
 
         task.save()
         logger.info("task updated`id={id},obj={dic}".format(id = id, dic = input_dic))
-        return 204
+        return '', 204
 
     def post(self):
         json_input = request.get_json()
@@ -177,6 +171,7 @@ api.add_resource(TaskAPI,
     '/task',
     '/task/<int:id>',
 )
+
 
 if __name__ == "__main__":
     create_tables()
